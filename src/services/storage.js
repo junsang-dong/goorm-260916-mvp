@@ -1,0 +1,4 @@
+const db=()=>new Promise((resolve,reject)=>{const r=indexedDB.open('content-copilot',1);r.onupgradeneeded=()=>r.result.createObjectStore('work');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+export function snapshot(s){const copy=structuredClone(s);if(copy.document)copy.document.pages=[];copy.request=null;return copy;}
+export async function stored(action,value){const d=await db();return new Promise((resolve,reject)=>{const tx=d.transaction('work',action==='get'?'readonly':'readwrite');const store=tx.objectStore('work');const r=action==='get'?store.get('current'):action==='put'?store.put(snapshot(value),'current'):store.delete('current');tx.oncomplete=()=>{resolve(r.result);d.close();};tx.onerror=()=>{reject(tx.error);d.close();};});}
+export async function hashFile(buffer){const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',buffer));return [...bytes].map(x=>x.toString(16).padStart(2,'0')).join('');}

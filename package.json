@@ -1,0 +1,1 @@
+{"name":"product-content-copilot","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite --host 127.0.0.1","build":"vite build","preview":"vite preview --host 127.0.0.1","test":"node --test tests/*.test.js"},"dependencies":{"pdfjs-dist":"6.3.289"},"devDependencies":{"vite":"8.3.0","@playwright/test":"1.58.2"}}

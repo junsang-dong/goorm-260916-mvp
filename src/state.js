@@ -1,0 +1,7 @@
+export const blankDraft = () => ({inputRevision:0,ko:{title:'',body:''},en:{title:'',body:''},sourceIds:[],staleLanguages:[],reviewStatus:'unreviewed'});
+export const initialState = (uiLanguage='ko') => ({schemaVersion:1,mode:'manual',inputRevision:0,document:null,product:{modelId:'',manufacturer:'',facts:[]},sources:[],settings:{uiLanguage,customerType:'buyer',contentType:'email',outputLanguage:'both'},draft:blankDraft(),questions:[],summary:[],terms:[],request:null,saveEnabled:false,ui:{activeTab:'draft',activeLanguage:'ko'}});
+export function invalidate(s){s.inputRevision++;s.draft.reviewStatus='unreviewed';}
+export function editDraft(s,lang,key,value){s.draft[lang][key]=value;s.draft.reviewStatus='unreviewed';const other=lang==='ko'?'en':'ko';if(s.draft[other].body&&!s.draft.staleLanguages.includes(other))s.draft.staleLanguages.push(other);}
+export const languages=s=>s.settings.outputLanguage==='both'?['ko','en']:[s.settings.outputLanguage];
+export const canPrepare=s=>!!s.product.modelId.trim()&&s.product.facts.some(f=>f.status==='userConfirmed');
+export function reviewErrors(s,checked){return [!languages(s).every(l=>s.draft[l].title.trim()&&s.draft[l].body.trim())&&'draft',s.draft.inputRevision!==s.inputRevision&&'revision',s.draft.staleLanguages.some(l=>languages(s).includes(l))&&'translation',s.questions.some(q=>q.status==='open')&&'questions',!checked&&'check'].filter(Boolean);}

@@ -1,0 +1,51 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1100}});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('http://127.0.0.1:5173');
+await page.locator('.empty-state').waitFor();
+assert.equal(await page.locator('.model-name').count(),0);
+await page.locator('.hero [data-action="sample"]').click();
+await page.locator('#body-ko').waitFor();
+assert.match(await page.locator('#body-en').inputValue(),/0.68 kg/);
+await page.screenshot({path:'docs/references/app-desktop.png',fullPage:true});
+const original=await page.locator('#body-en').inputValue();
+await page.locator('[data-action="language"]').click();
+assert.equal(await page.locator('#body-en').inputValue(),original);
+await page.locator('[data-action="language"]').click();
+await page.locator('#body-en').fill(original+'\nEdited');
+await page.locator('[data-action="translated-ko"]').waitFor();
+await page.locator('[data-action="translated-ko"]').click();
+await page.locator('[data-action="source"]').first().click();
+await page.waitForFunction(()=>document.querySelector('#pdf-canvas')?.width>300 && document.querySelector('#pdf-message')?.textContent==='',{timeout:60000});
+assert.match(await page.locator('#page-label').textContent(),/5 \/ 12/);
+await page.locator('#modal [data-action="close"]').click();
+assert.match(await page.locator('#body-en').inputValue(),/Edited/);
+await page.locator('[data-tab="questions"]').click();
+for(const id of ['q-1','q-2']){await page.locator(`#answer-${id}`).fill('초안에서 해당 주장을 제외함');await page.locator(`[data-question="${id}"][data-status="excluded"]`).click();await page.locator('[data-action="confirm-yes"]').click();}
+await page.locator('[data-tab="draft"]').click();await page.locator('#human-check').check();await page.locator('[data-action="review"]').click();assert.match(await page.locator('.review-pill').textContent(),/검토 완료/);
+const downloadPromise=page.waitForEvent('download');await page.locator('[data-action="download"]').click();const dl=await downloadPromise;assert.match(dl.suggestedFilename(),/BCSA-070-019-I_email_ko-en/);
+for(const width of [1440,1024,390,360]){await page.setViewportSize({width,height:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow at ${width}`);if(width===390)await page.screenshot({path:'docs/references/app-mobile.png',fullPage:true});}
+await page.setViewportSize({width:1440,height:1100});
+await page.locator('#save-enabled').check();await page.waitForTimeout(1000);await page.reload();await page.locator('[data-action="confirm-yes"]').click();assert.match(await page.locator('#body-en').inputValue(),/Edited/);
+await page.locator('[data-action="reset"]').click();await page.locator('[data-action="confirm-yes"]').click();
+await page.locator('.model-name').waitFor({state:'detached'});
+await page.locator('#pdf-file').setInputFiles('public/samples/bcsa-v4-catalog.pdf');
+await page.waitForFunction(()=>document.querySelector('.dropzone p')?.textContent.includes('12'),{timeout:60000});
+assert.equal(await page.locator('.model-name').count(),0);
+await page.locator('[data-action="facts"]').click();
+await page.locator('#model').fill('BCSA 070-019-I');await page.locator('[name="label"]').fill('허용 정격 토크');await page.locator('[name="value"]').fill('7');await page.locator('[name="unit"]').fill('Nm');await page.locator('[name="page"]').fill('5');await page.locator('[name="excerpt"]').fill('허용 정격 토크 7 Nm');await page.locator('[name="status"]').selectOption('userConfirmed');await page.locator('#facts-form button[type="submit"]').click();
+await page.locator('.manual-ai summary').click();await page.locator('#prompt-pages').fill('5');await page.locator('[data-action="prompt"]').click();const prompt=await page.locator('#modal textarea').inputValue();assert.match(prompt,/7/);assert.match(prompt,/requestId/);await page.locator('#modal [data-action="close"]').click();
+// Import untrusted data safely and preserve a valid draft on subsequent failures.
+const result=JSON.parse(prompt.split('반환 형식:\n')[1].split('\n\n선택 자료:')[0]);
+result.summary=[];result.terms=[];result.claims=[{text:'7 Nm',sourceIds:['src-1']}];result.questions=[];
+result.drafts={ko:{title:'제품 안내',body:'허용 정격 토크 7 Nm'},en:{title:'Product details',body:'Allowable rated torque 7 Nm'}};
+await page.locator('[data-action="import"]').click();await page.locator('#json-result').fill(JSON.stringify(result));await page.locator('[data-action="apply-import"]').click();await page.locator('#body-ko').waitFor();assert.match(await page.locator('#body-en').inputValue(),/7 Nm/);
+await page.locator('.manual-ai summary').click();await page.locator('[data-action="import"]').click();result.claims[0].sourceIds=['fake-source'];await page.locator('#json-result').fill(JSON.stringify(result));await page.locator('[data-action="apply-import"]').click();assert.match(await page.locator('.form-error').textContent(),/fake-source/);await page.locator('#modal [data-action="close"]').click();assert.match(await page.locator('#body-en').inputValue(),/7 Nm/);
+await page.evaluate(()=>{navigator.clipboard.writeText=()=>Promise.reject(new Error('Denied for test'));});await page.locator('[data-action="copy"]').click();await page.locator('#copy-fallback').waitFor();assert.match(await page.locator('#copy-fallback').inputValue(),/Unreviewed draft/);await page.locator('#modal [data-action="close"]').click();
+// Restored sources only reconnect to the exact original file.
+await page.locator('#save-enabled').check();await page.waitForTimeout(1000);await page.reload();await page.locator('[data-action="confirm-yes"]').click();await page.locator('#body-en').waitFor();await page.locator('#pdf-file').setInputFiles({name:'different.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 other source')});await page.waitForFunction(()=>document.querySelector('#toast')?.textContent.includes('다른 파일'));assert.match(await page.locator('#body-en').inputValue(),/7 Nm/);
+assert.deepEqual(errors,[]);
+console.log('PASS: sample / language / translation / PDF page 5 / question review / export / 4 viewport widths / restore / real PDF upload / manual facts / prompt');
+await browser.close();
