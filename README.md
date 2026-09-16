@@ -1,3 +1,9 @@
+![앱 메인 화면 및 확인 필요 항목](docs/references/xc1700.jpg)
+
+![한국어·영어 콘텐츠 초안 편집 화면](docs/references/xc1701.jpg)
+
+![PDF 원문 및 출처 확인 화면](docs/references/xc1702.jpg)
+
 # Product Content Copilot
 
 본시스템즈 BCSA 기술자료를 확인하고 고객별 한·영문 콘텐츠를 작성·검토하는 정적 웹 앱입니다. 첨부 명세서와 데스크톱·모바일 와이어프레임을 바탕으로 구현했습니다.
